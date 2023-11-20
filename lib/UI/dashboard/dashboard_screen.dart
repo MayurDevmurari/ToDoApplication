@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:tekyz_task/UI/CommonWidget/app_bar_widget.dart';
+import 'package:tekyz_task/UI/CommonWidget/custom_textfield.dart';
 import 'package:tekyz_task/UI/CommonWidget/text_widget.dart';
 import 'package:tekyz_task/UI/dashboard/controller/dashboard_controller.dart';
 import 'package:tekyz_task/UI/dashboard/widget/todo_item_widget.dart';
@@ -28,6 +29,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   void initState() {
     super.initState();
+    dashboardController.searchController.addListener(_onSearchChanged);
+  }
+
+  void _onSearchChanged() {
+    setState(() {
+      dashboardController.filteredTodoModelList.clear();
+      dashboardController.filteredTodoModelList.addAll(dashboardController.filterData(dashboardController.searchController.text));
+    });
   }
 
   @override
@@ -74,34 +83,59 @@ class _DashboardScreenState extends State<DashboardScreen> {
             preferredSize: Size.fromHeight(50),
             child: AppBarWidget()
         ),
-        body: ValueListenableBuilder(
-            valueListenable: dashboardController.todoBox.listenable(),
-            builder: (context, Box<TodoModel> box, _) {
-              dashboardController.todoModelList.clear();
-              dashboardController.todoModelList.addAll(box.values.toList());
-              if(dashboardController.todoModelList.isEmpty){
-                return Center(
-                  child: TextWidget(
-                    text: 'No Data Found',
-                    colors: colorBlack,
-                    fontWeight: FontWeight.w500,
-                    fontSize: 16,
-                    fontFamily: Fonts.poppinsSemiBold,
-                    maxLine: 1,
-                    textAlign: TextAlign.start,
-                  ),
-                );
-              }else{
-                return ListView.builder(
-                  itemCount: dashboardController.todoModelList.length,
-                  itemBuilder: (context, index){
-                    return TodoItemWidget(
-                      todoModel: dashboardController.todoModelList[index],
-                    );
-                  },
-                );
-              }
-            }
+        body: Column(
+          children: [
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.01, vertical: screenHeight * 0.005),
+              child: CustomTextField(
+                controller: dashboardController.searchController,
+                hintText: 'Search',
+                textInputType: TextInputType.text,
+                textInputAction: TextInputAction.search,
+                iconAndTextColor: colorText,
+                prefixIcon: Icon(
+                  CupertinoIcons.search_circle,
+                  color: colorText,
+                ),
+              ),
+            ),
+            Expanded(
+              child: ValueListenableBuilder(
+                  valueListenable: dashboardController.todoBox.listenable(),
+                  builder: (context, Box<TodoModel> box, _) {
+                    if(dashboardController.searchController.text.isNotEmpty){
+                      dashboardController.todoModelList.clear();
+                      dashboardController.todoModelList.addAll(dashboardController.filteredTodoModelList);
+                    }else{
+                      dashboardController.todoModelList.clear();
+                      dashboardController.todoModelList.addAll(box.values.toList());
+                    }
+                    if(dashboardController.todoModelList.isEmpty){
+                      return Center(
+                        child: TextWidget(
+                          text: 'No Data Found',
+                          colors: colorBlack,
+                          fontWeight: FontWeight.w500,
+                          fontSize: 16,
+                          fontFamily: Fonts.poppinsSemiBold,
+                          maxLine: 1,
+                          textAlign: TextAlign.start,
+                        ),
+                      );
+                    }else{
+                      return ListView.builder(
+                        itemCount: dashboardController.todoModelList.length,
+                        itemBuilder: (context, index){
+                          return TodoItemWidget(
+                            todoModel: dashboardController.todoModelList[index],
+                          );
+                        },
+                      );
+                    }
+                  }
+              ),
+            ),
+          ],
         ),
       ),
     );

@@ -1,12 +1,14 @@
-import 'package:alarm/alarm.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:hive/hive.dart';
 import 'package:intl/intl.dart';
 import 'package:tekyz_task/helper/common_method.dart';
-import 'package:tekyz_task/helper/images.dart';
 import 'package:tekyz_task/helper/string_constant.dart';
 import 'package:tekyz_task/hive/todo_model.dart';
+
+import 'package:tekyz_task/main.dart';
+import 'package:timezone/timezone.dart' as tz;
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 class AddTodoController extends GetxController{
   RxBool loading = false.obs;
@@ -33,7 +35,7 @@ class AddTodoController extends GetxController{
     DateTime? pickedDate = await showDatePicker(
         context: context,
         initialDate: selectedDate,
-        firstDate: DateTime(1950),
+        firstDate: DateTime.now(),
         lastDate: DateTime(2100));
 
     if (pickedDate != null) {
@@ -67,22 +69,8 @@ class AddTodoController extends GetxController{
       await todoBox.put(todoModel.createdAt, todoModel);
 
       if(isAlarmRequire.value == true){
-        final alarmDateTime = DateTime(selectedDate.year, selectedDate.month, selectedDate.day, selectedTime.hour, selectedTime.minute);
-
-        writeLog('Alarm Date and Time $alarmDateTime');
-
-        final alarmSettings = AlarmSettings(
-          id: 1,
-          dateTime: alarmDateTime,
-          assetAudioPath: Images.alarmTone1,
-          loopAudio: true,
-          vibrate: true,
-          volumeMax: true,
-          fadeDuration: 3.0,
-          notificationTitle: todoModel.title,
-          notificationBody: todoModel.description,
-          enableNotificationOnKill: true,
-        );
+        DateTime alarmDateTime = DateTime(selectedDate.year, selectedDate.month, selectedDate.day, selectedTime.hour, selectedTime.minute);
+        setNotificationAlarm(alarmDateTime, todoModel);
       }
 
       resetForm();
@@ -102,5 +90,44 @@ class AddTodoController extends GetxController{
     selectedDate = DateTime.now();
     selectedTime = TimeOfDay.now();
     CommonMethod().hideKeyboard();
+  }
+
+  Future<void> setNotificationAlarm(DateTime alarmDateTime,TodoModel todoModel) async {
+    final tz.TZDateTime now = tz.TZDateTime.now(tz.local);
+    tz.TZDateTime scheduleDate = tz.TZDateTime(
+      tz.local,
+      alarmDateTime.year,
+      alarmDateTime.month,
+      alarmDateTime.day,
+      alarmDateTime.hour,
+      alarmDateTime.minute,
+    );
+    if (scheduleDate.isBefore(now)) {
+      scheduleDate = scheduleDate.add(const Duration(days: 1));
+    }
+
+    AndroidNotificationDetails androidNotificationDetails = AndroidNotificationDetails(
+      todoModel.createdAt,
+      todoModel.title,
+      channelDescription: todoModel.description,
+      sound: const RawResourceAndroidNotificationSound('alarm_tone_2'),
+    );
+    const DarwinNotificationDetails darwinNotificationDetails = DarwinNotificationDetails(
+      sound: 'alarm_tone_2.aiff',
+    );
+    NotificationDetails notificationDetails = NotificationDetails(
+      android: androidNotificationDetails,
+      iOS: darwinNotificationDetails,
+      macOS: darwinNotificationDetails,
+    );
+    await flutterLocalNotificationsPlugin.zonedSchedule(
+        id++,
+        todoModel.title,
+        todoModel.description,
+        scheduleDate,
+        notificationDetails,androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
+        matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime
+    );
   }
 }
